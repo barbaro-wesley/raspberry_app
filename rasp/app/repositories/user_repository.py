@@ -12,5 +12,8 @@ class UserRepository:
         db.session.commit()
         return user
 
+    def get_by_id(self, user_id: int):
+        return db.session.get(User, user_id)
+
     def username_exists(self, username: str) -> bool:
         return self.get_by_username(username) is not None

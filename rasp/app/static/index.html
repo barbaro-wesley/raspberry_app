@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema de Dados</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans">
+
+  <!-- ===== AUTH ===== -->
+  <div id="auth-section" class="flex items-center justify-center min-h-screen">
+    <div class="bg-white rounded-2xl shadow-lg w-full max-w-md p-8">
+      <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">Sistema de Dados</h1>
+
+      <!-- Tabs -->
+      <div class="flex mb-6 border-b">
+        <button id="tab-login" onclick="switchTab('login')"
+          class="flex-1 py-2 text-sm font-semibold text-blue-600 border-b-2 border-blue-600 transition">
+          Entrar
+        </button>
+        <button id="tab-register" onclick="switchTab('register')"
+          class="flex-1 py-2 text-sm font-semibold text-gray-400 border-b-2 border-transparent transition">
+          Cadastrar
+        </button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="form-login" onsubmit="handleLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">Usuário</label>
+          <input id="login-username" type="text" placeholder="Digite seu usuário"
+            class="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        </div>
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">Senha</label>
+          <input id="login-password" type="password" placeholder="Digite sua senha"
+            class="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        </div>
+        <p id="login-error" class="text-red-500 text-xs hidden"></p>
+        <button type="submit"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition">
+          Entrar
+        </button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="form-register" onsubmit="handleRegister(event)" class="space-y-4 hidden">
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">Usuário</label>
+          <input id="reg-username" type="text" placeholder="Mínimo 3 caracteres"
+            class="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        </div>
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">Senha</label>
+          <input id="reg-password" type="password" placeholder="Mínimo 6 caracteres"
+            class="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        </div>
+        <p id="reg-error" class="text-red-500 text-xs hidden"></p>
+        <p id="reg-success" class="text-green-600 text-xs hidden"></p>
+        <button type="submit"
+          class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition">
+          Cadastrar
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== DASHBOARD ===== -->
+  <div id="dashboard-section" class="hidden min-h-screen">
+    <!-- Navbar -->
+    <nav class="bg-blue-700 text-white px-6 py-4 flex justify-between items-center shadow">
+      <span class="font-bold text-lg">Sistema de Dados</span>
+      <div class="flex items-center gap-4">
+        <span class="text-sm">Olá, <strong id="nav-username"></strong></span>
+        <button onclick="logout()"
+          class="bg-white text-blue-700 text-sm font-semibold px-4 py-1 rounded-lg hover:bg-gray-100 transition">
+          Sair
+        </button>
+      </div>
+    </nav>
+
+    <div class="max-w-3xl mx-auto px-4 py-8 space-y-6">
+
+      <!-- Add Data -->
+      <div class="bg-white rounded-2xl shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-700 mb-4">Adicionar Registro</h2>
+        <form onsubmit="handleAddData(event)" class="flex gap-3">
+          <input id="new-data" type="text" placeholder="Digite o valor..."
+            class="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+          <button type="submit"
+            class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition">
+            Adicionar
+          </button>
+        </form>
+        <p id="data-error" class="text-red-500 text-xs mt-2 hidden"></p>
+      </div>
+
+      <!-- Data List -->
+      <div class="bg-white rounded-2xl shadow p-6">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-semibold text-gray-700">Registros</h2>
+          <button onclick="loadData()"
+            class="text-blue-600 text-sm hover:underline">Atualizar</button>
+        </div>
+        <div id="data-list" class="space-y-2">
+          <p class="text-gray-400 text-sm">Carregando...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = 'http://localhost:5000';
+
+    // ---- Helpers ----
+    function getToken() { return localStorage.getItem('token'); }
+    function getUsername() { return localStorage.getItem('username'); }
+
+    function showError(id, msg) {
+      const el = document.getElementById(id);
+      el.textContent = typeof msg === 'object' ? JSON.stringify(msg) : msg;
+      el.classList.remove('hidden');
+    }
+    function hideError(id) { document.getElementById(id).classList.add('hidden'); }
+
+    async function apiFetch(path, options = {}) {
+      const token = getToken();
+      const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(API + path, { ...options, headers });
+      const json = await res.json();
+      return { ok: res.ok, status: res.status, data: json };
+    }
+
+    // ---- Tabs ----
+    function switchTab(tab) {
+      const isLogin = tab === 'login';
+      document.getElementById('form-login').classList.toggle('hidden', !isLogin);
+      document.getElementById('form-register').classList.toggle('hidden', isLogin);
+      document.getElementById('tab-login').className = isLogin
+        ? 'flex-1 py-2 text-sm font-semibold text-blue-600 border-b-2 border-blue-600 transition'
+        : 'flex-1 py-2 text-sm font-semibold text-gray-400 border-b-2 border-transparent transition';
+      document.getElementById('tab-register').className = !isLogin
+        ? 'flex-1 py-2 text-sm font-semibold text-blue-600 border-b-2 border-blue-600 transition'
+        : 'flex-1 py-2 text-sm font-semibold text-gray-400 border-b-2 border-transparent transition';
+    }
+
+    // ---- Auth ----
+    async function handleLogin(e) {
+      e.preventDefault();
+      hideError('login-error');
+      const username = document.getElementById('login-username').value.trim();
+      const password = document.getElementById('login-password').value;
+
+      const { ok, data } = await apiFetch('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (!ok) return showError('login-error', data.error);
+
+      localStorage.setItem('token', data.access_token);
+      localStorage.setItem('username', username);
+      showDashboard();
+    }
+
+    async function handleRegister(e) {
+      e.preventDefault();
+      hideError('reg-error');
+      document.getElementById('reg-success').classList.add('hidden');
+      const username = document.getElementById('reg-username').value.trim();
+      const password = document.getElementById('reg-password').value;
+
+      const { ok, data } = await apiFetch('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (!ok) return showError('reg-error', data.error);
+
+      document.getElementById('reg-success').textContent = 'Cadastro realizado! Faça login.';
+      document.getElementById('reg-success').classList.remove('hidden');
+      document.getElementById('reg-username').value = '';
+      document.getElementById('reg-password').value = '';
+      setTimeout(() => switchTab('login'), 1500);
+    }
+
+    function logout() {
+      localStorage.removeItem('token');
+      localStorage.removeItem('username');
+      showAuth();
+    }
+
+    // ---- Sections ----
+    function showDashboard() {
+      document.getElementById('auth-section').classList.add('hidden');
+      document.getElementById('dashboard-section').classList.remove('hidden');
+      document.getElementById('nav-username').textContent = getUsername();
+      loadData();
+    }
+
+    function showAuth() {
+      document.getElementById('dashboard-section').classList.add('hidden');
+      document.getElementById('auth-section').classList.remove('hidden');
+    }
+
+    // ---- Data CRUD ----
+    async function loadData() {
+      const list = document.getElementById('data-list');
+      list.innerHTML = '<p class="text-gray-400 text-sm">Carregando...</p>';
+
+      const { ok, data, status } = await apiFetch('/data/');
+
+      if (status === 401) { logout(); return; }
+      if (!ok) { list.innerHTML = '<p class="text-red-500 text-sm">Erro ao carregar dados.</p>'; return; }
+
+      if (data.length === 0) {
+        list.innerHTML = '<p class="text-gray-400 text-sm">Nenhum registro encontrado.</p>';
+        return;
+      }
+
+      list.innerHTML = data.map(entry => `
+        <div class="flex justify-between items-center bg-gray-50 border border-gray-200 rounded-lg px-4 py-2">
+          <div>
+            <span class="text-xs text-gray-400 mr-2">#${entry.id}</span>
+            <span class="text-sm text-gray-700">${escapeHtml(entry.data)}</span>
+          </div>
+          <button onclick="deleteData(${entry.id})"
+            class="text-red-500 hover:text-red-700 text-xs font-semibold transition">
+            Excluir
+          </button>
+        </div>
+      `).join('');
+    }
+
+    async function handleAddData(e) {
+      e.preventDefault();
+      hideError('data-error');
+      const value = document.getElementById('new-data').value.trim();
+      if (!value) return showError('data-error', 'O campo não pode ser vazio.');
+
+      const { ok, data, status } = await apiFetch('/data/', {
+        method: 'POST',
+        body: JSON.stringify({ data: value }),
+      });
+
+      if (status === 401) { logout(); return; }
+      if (!ok) return showError('data-error', data.error);
+
+      document.getElementById('new-data').value = '';
+      loadData();
+    }
+
+    async function deleteData(id) {
+      if (!confirm(`Excluir registro #${id}?`)) return;
+      const { ok, status } = await apiFetch(`/data/${id}`, { method: 'DELETE' });
+      if (status === 401) { logout(); return; }
+      if (ok) loadData();
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ---- Init ----
+    if (getToken()) {
+      showDashboard();
+    }
+  </script>
+</body>
+</html>

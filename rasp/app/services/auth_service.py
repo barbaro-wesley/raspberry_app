@@ -21,6 +21,9 @@ class AuthService:
         user = self.repository.create(username, password_hash)
         return {"id": user.id, "username": user.username}
 
+    def get_by_id(self, user_id: int):
+        return self.repository.get_by_id(user_id)
+
     def login(self, username: str, password: str):
         user = self.repository.get_by_username(username)
 
